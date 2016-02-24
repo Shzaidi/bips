@@ -9,7 +9,7 @@
 
 ==Abstract==
 
-Use a staged hard fork to implement a headers format change that is merge mine incompatible along with a timewarp to kill the previous chain.
+Use a staged hard fork to implement a headers format change that is merge mine incompatible along with a timewarp to increase the difficulty and kill the previous chain.
 
 ==Specification==
 
@@ -17,7 +17,41 @@ We use a block version flag to activate this fork when 3900 out of the previous 
 
 Merge Mine Stage: The initial hard fork is implemented using a merge mine which requires that the original pre-fork chain be mined with a generation transaction that creates no new coins in addition to not containing any transactions. Additionally we have a consensus rule that requires that ntime be manipulated on the original chain to artificially increase difficulty and hold back the original chain so that all non-upgraded clients can never catch up with current time. The artificial ntime is implemented as a consensus rule for blocks in the new chain.
 
-Headers Change Stage: This is the final stage of the hard fork where the header format is made incompatible with merge mining, this is activated ~50,000 blocks after the Merge Mine Stage and only at the start of the 2016 block difficulty boundary.
+New Header
+
+new_header.prev = hash of previous header's bitcoin header
+new_header.small_nonce = 4 byte nonce
+new_header.big_nonce = 8 byte nonce
+
+new_header.... (Can contain any new fields desired)
+
+Fake Block
+
+block.version = 4
+block.prev = new_header.prev
+block.merkle = calculate_merkle(coinbase)
+block.timestamp = block.getPreviousBlock().median_time_past + 1
+block.bits = calculate_bits()
+block.nonce = new_header.small_nonce
+block.tx_count = 1
+
+Coinbase
+
+coinbase.version = 1
+coinbase.tx_in_count = 0
+coinbase.tx_out_count = 1
+coinbase.tx_out[0].value = 0
+coinbase.tx_out[0].pk_script = "OP_RETURN"
+
+This is a "nuclear option" attack that knocks out the main chain. The median time past will increase very slowly. It only needs to increase by 1 every 6th blocks. That gives an increase of 336 seconds for every difficulty update. This will cap the update rate, so give an increase of 4X every doubling.
+
+If the bitcoin chain stays at constant difficulty, then each quadrupling will take more time.
+
+After 2 weeks: 4XDiff   (2 weeks per diff period)
+After 10 weeks: 16XDiff (8 weeks per diff period)
+After 42 weeks: 256XDiff (32 weeks per diff period)
+
+Headers Change Stage: This is the final stage of the hard fork where the header format is made incompatible with merge mining, this is activated after ~42,336 blocks on the Merge Mine Stage and only at the start of the 2016 block difficulty boundary on the main chain. The activation condition will be when the original chain is 6048 blocks after the start of the timewarp.
 
 ==Motivation==
 
